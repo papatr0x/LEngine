@@ -9,6 +9,12 @@ include(FetchContent)
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
+# Suppress linker warnings from third-party shared libraries (macOS ld deprecations).
+# CMAKE_SHARED_LINKER_FLAGS only affects SHARED targets, not our executables.
+if (APPLE)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-w")
+endif()
+
 # --- SDL3 ---
 set(SDL_TESTS    OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -30,6 +36,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL3_ttf)
 
+# freetype (vendored by SDL3_ttf) redefines OS_CODE in its gzip source.
+if (TARGET freetype)
+    target_compile_options(freetype PRIVATE -Wno-macro-redefined)
+endif()
+
 # --- SDL3_mixer ---
 set(SDLMIXER_VENDORED ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
@@ -38,6 +49,11 @@ FetchContent_Declare(
     GIT_TAG        "release-3.2.0"
 )
 FetchContent_MakeAvailable(SDL3_mixer)
+
+# opus emits a #pragma message when built without optimization (Debug builds).
+if (TARGET opus)
+    target_compile_options(opus PRIVATE "-Wno-#pragma-messages")
+endif()
 
 # Fix for missing headers when compiling static version on Windows
 if (WIN32)

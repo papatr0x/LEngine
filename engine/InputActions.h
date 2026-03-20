@@ -2,13 +2,11 @@
 
 #ifndef LETSLEARNSDL_INPUTACTIONS_H
 #define LETSLEARNSDL_INPUTACTIONS_H
+#include "Input.h"
 #include <string>
 #include <string_view>
 #include <vector>
 #include <unordered_map>
-#include <algorithm>
-#include <SDL3/SDL_scancode.h>
-#include <SDL3/SDL_gamepad.h>
 
 struct ActionBindings {
     std::vector<SDL_Scancode>      keys;
@@ -46,6 +44,32 @@ public:
     const ActionBindings* getBindings(std::string_view action) const {
         const auto it = bindings.find(action);
         return it != bindings.end() ? &it->second : nullptr;
+    }
+
+    // Query helpers — centralise the loop so neither InputComponent
+    // nor PlayerController need to duplicate it.
+    bool isDown(const Input& input, std::string_view action) const {
+        const auto* b = getBindings(action);
+        if (!b) return false;
+        for (const auto key : b->keys)    if (input.isKeyDown(key))             return true;
+        for (const auto btn : b->buttons)  if (input.isGamepadButtonDown(btn))   return true;
+        return false;
+    }
+
+    bool isPressed(const Input& input, std::string_view action) const {
+        const auto* b = getBindings(action);
+        if (!b) return false;
+        for (const auto key : b->keys)    if (input.isKeyPressed(key))          return true;
+        for (const auto btn : b->buttons)  if (input.isGamepadButtonPressed(btn)) return true;
+        return false;
+    }
+
+    bool isReleased(const Input& input, std::string_view action) const {
+        const auto* b = getBindings(action);
+        if (!b) return false;
+        for (const auto key : b->keys)    if (input.isKeyReleased(key))          return true;
+        for (const auto btn : b->buttons)  if (input.isGamepadButtonReleased(btn)) return true;
+        return false;
     }
 
 private:

@@ -23,35 +23,9 @@ public:
     void unbindAll(const std::string_view action) { actions.unbindAll(action); }
 
     // Action queries — checks keyboard and gamepad bindings
-    bool isActionDown(const std::string_view action) const {
-        const auto* b = actions.getBindings(action);
-        if (!b) return false;
-        for (const auto key : b->keys)
-            if (input.isKeyDown(key)) return true;
-        for (const auto btn : b->buttons)
-            if (input.isGamepadButtonDown(btn)) return true;
-        return false;
-    }
-
-    bool isActionPressed(const std::string_view action) const {
-        const auto* b = actions.getBindings(action);
-        if (!b) return false;
-        for (const auto key : b->keys)
-            if (input.isKeyPressed(key)) return true;
-        for (const auto btn : b->buttons)
-            if (input.isGamepadButtonPressed(btn)) return true;
-        return false;
-    }
-
-    bool isActionReleased(const std::string_view action) const {
-        const auto* b = actions.getBindings(action);
-        if (!b) return false;
-        for (const auto key : b->keys)
-            if (input.isKeyReleased(key)) return true;
-        for (const auto btn : b->buttons)
-            if (input.isGamepadButtonReleased(btn)) return true;
-        return false;
-    }
+    bool isActionDown(const std::string_view action)     const { return actions.isDown(input, action);     }
+    bool isActionPressed(const std::string_view action)  const { return actions.isPressed(input, action);  }
+    bool isActionReleased(const std::string_view action) const { return actions.isReleased(input, action); }
 
     // Keyboard raw
     bool isKeyDown(const SDL_Scancode key) const { return input.isKeyDown(key); }

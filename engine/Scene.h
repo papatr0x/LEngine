@@ -5,6 +5,7 @@
 
 #include "Object.h"
 #include "SceneSubsystem.h"
+#include "PlayerControllerBase.h"
 #include "Camera.h"
 #include <memory>
 #include <vector>
@@ -82,6 +83,9 @@ public:
     }
 
     void update(const float deltaTime) {
+        for (auto& ctrl : controllers)
+            ctrl->update(deltaTime);
+
         for (auto& entry : componentPool) {
             if (!entry.owner->isActive() || !entry.component->isEnabled()) continue;
 
@@ -111,6 +115,17 @@ public:
             sys->update();
 
         flushDestroyQueue();
+    }
+
+    template<typename T, typename... Args>
+    T* addPlayerController(Args&&... args) {
+        static_assert(std::is_base_of_v<PlayerControllerBase, T>, "T MUST derive from PlayerControllerBase");
+
+        auto ctrl = std::make_unique<T>(std::forward<Args>(args)...);
+        T* ptr = ctrl.get();
+        ptr->scene_ = this;
+        controllers.push_back(std::move(ctrl));
+        return ptr;
     }
 
     template<typename T, typename... Args>
@@ -158,6 +173,11 @@ private:
         for (auto& object : objects)
             object->flushDestroyedComponents();
 
+        // Unpossess any controller whose pawn is about to be freed.
+        for (auto& ctrl : controllers)
+            if (ctrl->hasPawn() && ctrl->getPawn()->isPendingDestroy())
+                ctrl->unpossess();
+
         std::erase_if(objects,
             [](const std::unique_ptr<Object>& o) { return o->isPendingDestroy(); });
     }
@@ -171,10 +191,11 @@ private:
     static constexpr float fixedPhysicsStep{1.0f / 60.0f};
 
     struct ComponentEntry { Object* owner; Component* component; };
-    std::vector<ComponentEntry>              componentPool;
-    std::vector<std::unique_ptr<Object>>     objects;
-    std::vector<Component*>                  renderables;
+    std::vector<ComponentEntry>                  componentPool;
+    std::vector<std::unique_ptr<Object>>         objects;
+    std::vector<Component*>                      renderables;
     std::vector<std::unique_ptr<SceneSubsystem>> subsystems;
+    std::vector<std::unique_ptr<PlayerControllerBase>> controllers;
 
     std::string sceneId;
     friend class SceneOrchestrator;
