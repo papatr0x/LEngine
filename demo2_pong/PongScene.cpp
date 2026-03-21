@@ -15,15 +15,18 @@
 #include <string>
 
 // ---------------------------------------------------------------------------
-// PaddleController — human player (W/S). Y axis moves the paddle.
+// PaddleController — human player (W/S). Y-axis moves the paddle.
 // ---------------------------------------------------------------------------
 class PaddleController : public PlayerController {
 public:
     explicit PaddleController(float screenH)
-        : PlayerController(0), screenH_(screenH) {}
+        : PlayerController(0), screenH_(screenH) {
+        bind("MoveUp",   SDL_SCANCODE_UP);
+        bind("MoveDown", SDL_SCANCODE_DOWN);
+    }
 
 protected:
-    void update(float dt) override {
+    void update(const float dt) override {
         if (!hasPawn()) return;
 
         constexpr float speed  = 400.f;
@@ -55,7 +58,7 @@ protected:
         constexpr float speed = 270.f;
         constexpr float halfH = 50.f;
 
-        auto& pos   = getPawn()->transform.position;
+        auto& pos = getPawn()->transform.position;
         const float diff = ball_->transform.position.y - pos.y;
         const float step = std::min(std::abs(diff), speed * dt);
         pos.y += (diff >= 0.f ? step : -step);
@@ -297,7 +300,7 @@ void PongScene::load() {
     // --- HUD hint ---
     auto* hud = addObject<Object>("HUD");
     hud->transform.position = {fW * 0.5f, fH - 20.f};
-    hud->addComponent<TextComponent>("Hint", "W/S  |  First to 10 wins", fontHud);
+    hud->addComponent<TextComponent>("Hint", "Up/Down | First to 10 wins", fontHud);
 
     // --- Controllers ---
     addPlayerController<PaddleController>(fH)->possess(p1);

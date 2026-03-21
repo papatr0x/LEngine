@@ -30,22 +30,22 @@ public:
         const std::string scoreText =
             std::to_string(PongState::scoreP1) + "  -  " + std::to_string(PongState::scoreP2);
 
-        auto* ui = addObject<Object>("UI");
+        auto ui = addObject<Object>("UI");
         ui->transform.position = {sw * 0.5f, sh * 0.5f};
 
-        auto* winner = ui->addComponent<TextComponent>("Winner", winnerText, fontBig);
+        auto winner = ui->addComponent<TextComponent>("Winner", winnerText, fontBig);
         winner->setOffset({0.f, -80.f});
 
-        auto* score = ui->addComponent<TextComponent>("Score", scoreText, fontMed);
+        auto score = ui->addComponent<TextComponent>("Score", scoreText, fontMed);
         score->setOffset({0.f, 20.f});
 
-        auto* hint = ui->addComponent<TextComponent>("Hint", "[ENTER] Back to Menu", fontSml);
+        auto hint = ui->addComponent<TextComponent>("Hint", "[ENTER] Back to Menu", fontSml);
         hint->setOffset({0.f, 100.f});
 
         // --- Input ---
-        auto* inputObj  = addObject<Object>("Input");
-        auto* inputComp = inputObj->addComponent<InputComponent>("GameOverInput");
-        auto* tc        = inputObj->addComponent<TransitionComponent>("ToMenu", "menu");
+        auto inputObj = addObject<Object>("Input");
+        auto inputComp = inputObj->addComponent<InputComponent>("GameOverInput");
+        auto tc = inputObj->addComponent<TransitionComponent>("ToMenu", "menu");
 
         inputObj->addComponent<ScriptComponent>("InputScript", [tc, inputComp](float, Object*) {
             if (inputComp->isKeyPressed(SDL_SCANCODE_RETURN) ||
