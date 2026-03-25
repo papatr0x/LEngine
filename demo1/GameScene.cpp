@@ -155,7 +155,7 @@ void GameScene::load() {
     TTF_Font* font = FontManager::instance().load("assets/Roboto-Regular.ttf", 16.f);
     auto hud = addObject<Object>("HUD");
     auto hudText = hud->addComponent<TextComponent>("HUD Text", "Move with WASD/Gamepad - ESC to exit.",
-                                                     font, Vec2F{10.f, 10.f}, SDL_Color{255, 255, 0, 255});
+        font, SDL_Color{255, 255, 0, 255},Vec2F{10.f, 10.f});
     hudText->setPivot(Vec2F{0.f, 0.f});
 
     // --- Enemy ---
