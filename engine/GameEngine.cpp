@@ -3,6 +3,7 @@
 #include "GameEngine.h"
 #include "AudioManager.h"
 #include "FontManager.h"
+#include "GameStateManager.h"
 #include "TextureManager.h"
 #include <iostream>
 #include <memory>
@@ -69,6 +70,7 @@ void GameEngine::shutdown() {
     TTF_DestroyRendererTextEngine(textEngine);
     TextureManager::instance().unloadAll();  // destroy SDL_Texture* before renderer goes down
     TTF_Quit();
+    GameStateManager::instance().clear();
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);
     SDL_Quit();
