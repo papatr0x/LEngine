@@ -156,6 +156,10 @@ public:
         return it != objects.end() ? it->get() : nullptr;
     }
 
+    void setBackgroundColor(const SDL_Color& color) {
+        backgroundColor = color;
+    }
+
 private:
     void flushDestroyQueue() {
         // Notify subsystems before memory is freed.
@@ -200,6 +204,7 @@ private:
 
     std::string sceneId;
     friend class SceneOrchestrator;
+    SDL_Color backgroundColor{0,0,0, 0xff};
 
 protected:
     template<typename T, typename... Args>
@@ -214,8 +219,6 @@ protected:
     const Vec2& getScreenSize() const {
         return screenSize;
     }
-
-    SDL_Color backgroundColor{0,0,0, 0xff};
 };
 
 #endif //LETSLEARNSDL_SCENE_H

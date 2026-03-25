@@ -250,7 +250,7 @@ private:
 // ===========================================================================
 void PongScene::load() {
     PongState::reset();
-    backgroundColor = {0x1a, 0x1a, 0x2e, 0xff};
+    setBackgroundColor(SDL_Color{0x1a, 0x1a, 0x2e, 0xff});
 
     auto& [sw, sh] = getScreenSize();
     // const float fW = static_cast<float>(sw);

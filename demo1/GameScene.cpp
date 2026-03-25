@@ -116,7 +116,7 @@ private:
 // ---------------------------------------------------------------------------
 
 void GameScene::load() {
-    backgroundColor = SDL_Color{0x1f, 0x1f, 0x1f, 0xff};
+    setBackgroundColor(SDL_Color{0x1f, 0x1f, 0x1f, 0xff});
     addSubsystem<CollisionSystem>();
 
     // --- Audio ---

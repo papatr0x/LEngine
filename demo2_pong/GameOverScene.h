@@ -16,10 +16,9 @@
 class GameOverScene : public Scene {
 public:
     void load() override {
-        backgroundColor = {0x1a, 0x1a, 0x2e, 0xff};
+        setBackgroundColor({0x1a, 0x1a, 0x2e, 0xff});
 
-        int sw, sh;
-        SDL_GetWindowSize(GameEngine::instance().getWindow(), &sw, &sh);
+        auto& [sw, sh] = getScreenSize();
 
         TTF_Font* fontBig = FontManager::instance().load("assets/Roboto-Regular.ttf", 64.f);
         TTF_Font* fontMed = FontManager::instance().load("assets/Roboto-Regular.ttf", 36.f);
