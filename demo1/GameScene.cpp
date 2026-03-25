@@ -127,8 +127,7 @@ void GameScene::load() {
     GameEngine& engine       = GameEngine::instance();
     TextureManager& texManager = TextureManager::instance();
 
-    int screenWidth, screenHeight;
-    SDL_GetWindowSize(engine.getWindow(), &screenWidth, &screenHeight);
+    auto [screenWidth, screenHeight] = getScreenSize();
 
     // --- Player ---
     auto player = addObject<Object>("Player");
