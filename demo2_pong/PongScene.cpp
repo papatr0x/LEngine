@@ -253,8 +253,6 @@ void PongScene::load() {
     setBackgroundColor(SDL_Color{0x1a, 0x1a, 0x2e, 0xff});
 
     auto& [sw, sh] = getScreenSize();
-    // const float fW = static_cast<float>(sw);
-    // const float fH = static_cast<float>(sh);
 
     TTF_Font* fontScore = FontManager::instance().load("assets/Roboto-Regular.ttf", 48.f);
     TTF_Font* fontHud   = FontManager::instance().load("assets/Roboto-Regular.ttf", 16.f);
