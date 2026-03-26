@@ -2,6 +2,8 @@
 
 #include "PongScene.h"
 #include "AIController.h"
+#include "ColliderComponent.h"
+#include "CollisionSystem.h"
 #include "FontManager.h"
 #include "GameEngine.h"
 #include "PlayerController.h"
@@ -15,7 +17,7 @@
 #include <string>
 
 // ---------------------------------------------------------------------------
-// PaddleController — human player (W/S). Y-axis moves the paddle.
+// PaddleController — human player (up/down arrows). Y-axis moves the paddle.
 // ---------------------------------------------------------------------------
 class PaddleController : public PlayerController {
 public:
@@ -29,8 +31,8 @@ protected:
     void update(const float dt) override {
         if (!hasPawn()) return;
 
-        constexpr float speed  = 400.f;
-        constexpr float halfH  = 50.f;   // half of paddle height (100px)
+        constexpr float speed = 400.f;
+        constexpr float halfH = 50.f;
 
         auto& pos = getPawn()->transform.position;
         pos.y += getMovementAxis().y * speed * dt;
@@ -71,18 +73,56 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// BallController — moves the ball, handles wall/paddle bounces and scoring.
+// BallController — moves the ball and scores. Bounce response is driven by
+// CollisionSystem callbacks set up in PongScene::load().
 // ---------------------------------------------------------------------------
 class BallController : public AIController {
 public:
     BallController(float screenW, float screenH)
         : screenW_(screenW), screenH_(screenH) {}
 
+    // Called by the ball's onEnter callback when it hits a top/bottom wall.
+    void bounceFromWall(const bool top) {
+        if (!launched_) return;
+        dy_ = top ? std::abs(dy_) : -std::abs(dy_);
+        getPawn()->transform.position.y = top ? kRadius : screenH_ - kRadius;
+    }
+
+    // Called by the ball's onEnter callback when it hits a paddle.
+    // paddleBounds comes from other->getBounds() — used for the push-out.
+    void bounceFromPaddle(const Vec2F& paddleCenter, const bool isLeft,
+                          const SDL_FRect& paddleBounds) {
+        if (!launched_) return;
+        // Only respond when the ball is approaching the paddle.
+        if ( isLeft && dx_ >= 0.f) return;
+        if (!isLeft && dx_ <= 0.f) return;
+
+        auto& ballPos = getPawn()->transform.position;
+
+        // Deflection angle: center hit → horizontal, edge hit → ±60°.
+        const float hitNorm   = std::clamp((ballPos.y - paddleCenter.y) / kPaddleHH, -1.f, 1.f);
+        const float exitAngle = hitNorm * (std::numbers::pi_v<float> / 3.f);
+
+        dx_ = isLeft ? std::cos(exitAngle) : -std::cos(exitAngle);
+        dy_ = std::sin(exitAngle);
+
+        // Transfer a fraction of the human paddle velocity to dy so the player
+        // can influence the trajectory. AI paddle uses angle-only deflection.
+        if (isLeft) {
+            const float velNorm = std::clamp(p1PaddleVelY_ / kPaddleMaxSpeed, -1.f, 1.f);
+            dy_ += velNorm * kVelTransfer;
+            const float len = std::hypot(dx_, dy_);
+            if (len > 0.f) { dx_ /= len; dy_ /= len; }
+        }
+
+        // Push ball outside the paddle to prevent sticking.
+        const float right = paddleBounds.x + paddleBounds.w;
+        ballPos.x = isLeft ? right + kRadius + 1.f : paddleBounds.x - kRadius - 1.f;
+    }
+
 protected:
     void onPossess(Object*) override {
         p1Paddle_ = getScene()->findObject("P1Paddle");
-        p2Paddle_ = getScene()->findObject("P2Paddle");
-
         if (p1Paddle_)
             p1PaddlePrevY_ = p1Paddle_->transform.position.y;
 
@@ -95,13 +135,12 @@ protected:
     void update(float dt) override {
         if (!hasPawn()) return;
 
-        // --- Track P1 paddle velocity for hit influence ---
+        // Track P1 paddle velocity for hit influence.
         if (p1Paddle_ && dt > 0.f) {
             p1PaddleVelY_  = (p1Paddle_->transform.position.y - p1PaddlePrevY_) / dt;
             p1PaddlePrevY_ =  p1Paddle_->transform.position.y;
         }
 
-        // --- Launch delay ---
         if (!launched_) {
             launchTimer_ -= dt;
             if (launchTimer_ <= 0.f) launch();
@@ -112,20 +151,7 @@ protected:
         pos.x += dx_ * kSpeed * dt;
         pos.y += dy_ * kSpeed * dt;
 
-        // --- Top / bottom wall bounce ---
-        if (pos.y - kRadius <= 0.f) {
-            pos.y = kRadius;
-            dy_   = std::abs(dy_);
-        } else if (pos.y + kRadius >= screenH_) {
-            pos.y = screenH_ - kRadius;
-            dy_   = -std::abs(dy_);
-        }
-
-        // --- Paddle collision ---
-        if (p1Paddle_) handlePaddleCollision(p1Paddle_);
-        if (p2Paddle_) handlePaddleCollision(p2Paddle_);
-
-        // --- Scoring ---
+        // Scoring — left/right bounds remain a simple range check.
         if (pos.x + kRadius < 0.f) {
             ++PongState::scoreP2;
             onScore();
@@ -136,9 +162,7 @@ protected:
     }
 
 private:
-    // -----------------------------------------------------------------------
     void launch() {
-        // Random angle in ±30° from horizontal, random left/right direction.
         const float angle =
             static_cast<float>((rand() % 60) - 30) * std::numbers::pi_v<float> / 180.f;
         const float signX = (rand() % 2 == 0) ? 1.f : -1.f;
@@ -147,57 +171,8 @@ private:
         launched_ = true;
     }
 
-    // -----------------------------------------------------------------------
-    // AABB-circle paddle check. Deflection angle depends on hit position.
-    void handlePaddleCollision(Object* paddle) {
-        const bool isLeft  = paddle->transform.position.x < screenW_ * 0.5f;
-
-        // Only test when the ball is approaching the paddle.
-        if ( isLeft && dx_ >= 0.f) return;
-        if (!isLeft && dx_ <= 0.f) return;
-
-        const Vec2F& padPos = paddle->transform.position;
-        const float left   = padPos.x - kPaddleHW;
-        const float right  = padPos.x + kPaddleHW;
-        const float top    = padPos.y - kPaddleHH;
-        const float bottom = padPos.y + kPaddleHH;
-
-        auto& ballPos = getPawn()->transform.position;
-        const bool overlap =
-            ballPos.x - kRadius < right  &&
-            ballPos.x + kRadius > left   &&
-            ballPos.y - kRadius < bottom &&
-            ballPos.y + kRadius > top;
-
-        if (!overlap) return;
-
-        // Compute exit angle based on where on the paddle the ball hit.
-        // Center → horizontal, edge → ±60°.
-        const float hitNorm  = std::clamp((ballPos.y - padPos.y) / kPaddleHH, -1.f, 1.f);
-        const float exitAngle = hitNorm * (std::numbers::pi_v<float> / 3.f);  // ±60°
-
-        dx_ = isLeft ? std::cos(exitAngle) : -std::cos(exitAngle);
-        dy_ = std::sin(exitAngle);
-
-        // When P1 (human) hits, transfer a fraction of paddle velocity to the
-        // ball's Y direction so the player can influence the trajectory.
-        // P2 (AI) uses the standard angle-only deflection.
-        if (isLeft) {
-            const float velNorm = std::clamp(p1PaddleVelY_ / kPaddleMaxSpeed, -1.f, 1.f);
-            dy_ += velNorm * kVelTransfer;
-            // Renormalize to keep ball speed constant.
-            const float len = std::hypot(dx_, dy_);
-            if (len > 0.f) { dx_ /= len; dy_ /= len; }
-        }
-
-        // Push ball outside the paddle to prevent sticking.
-        ballPos.x = isLeft ? right + kRadius + 1.f : left - kRadius - 1.f;
-    }
-
-    // -----------------------------------------------------------------------
     void onScore() {
         refreshScoreText();
-
         if (PongState::scoreP1 >= PongState::winScore) {
             PongState::winner = 1;
             SceneOrchestrator::instance().goTo("gameover");
@@ -208,7 +183,6 @@ private:
             SceneOrchestrator::instance().goTo("gameover");
             return;
         }
-
         resetBall();
     }
 
@@ -223,24 +197,21 @@ private:
         if (scoreText2_) scoreText2_->setText(std::to_string(PongState::scoreP2));
     }
 
-    // -----------------------------------------------------------------------
-    static constexpr float kSpeed        = 350.f;
-    static constexpr float kRadius       =   8.f;
-    static constexpr float kPaddleHW     =   7.5f;
-    static constexpr float kPaddleHH     =  50.f;
+    static constexpr float kSpeed          = 350.f;
+    static constexpr float kRadius         =   8.f;
+    static constexpr float kPaddleHH       =  50.f;
     static constexpr float kPaddleMaxSpeed = 400.f;  // must match PaddleController speed
-    static constexpr float kVelTransfer  =   0.4f;   // fraction of paddle velocity added to dy
+    static constexpr float kVelTransfer    =   0.4f;
 
     float  screenW_, screenH_;
     float  dx_{1.f}, dy_{0.f};
     float  launchTimer_{1.f};
     bool   launched_{false};
 
-    float  p1PaddlePrevY_{0.f};   // paddle Y at end of previous frame
-    float  p1PaddleVelY_{0.f};    // estimated paddle Y velocity this frame
+    float  p1PaddlePrevY_{0.f};
+    float  p1PaddleVelY_{0.f};
 
     Object*        p1Paddle_{nullptr};
-    Object*        p2Paddle_{nullptr};
     TextComponent* scoreText1_{nullptr};
     TextComponent* scoreText2_{nullptr};
 };
@@ -249,6 +220,7 @@ private:
 // PongScene::load
 // ===========================================================================
 void PongScene::load() {
+    addSubsystem<CollisionSystem>();
     PongState::reset();
     setBackgroundColor(SDL_Color{0x1a, 0x1a, 0x2e, 0xff});
 
@@ -274,16 +246,36 @@ void PongScene::load() {
     // --- Paddles ---
     auto* p1 = addObject("P1Paddle");
     p1->transform.position = {40.f, sh * 0.5f};
+    p1->setTag("P1Paddle");
     p1->addComponent<SquareComponent>("Shape", paddleSize, white);
+    p1->addComponent<BoxColliderComponent>("Collider", paddleSize)->isTrigger = true;
 
     auto* p2 = addObject("P2Paddle");
     p2->transform.position = {sw - 40.f, sh * 0.5f};
+    p2->setTag("P2Paddle");
     p2->addComponent<SquareComponent>("Shape", paddleSize, white);
+    p2->addComponent<BoxColliderComponent>("Collider", paddleSize)->isTrigger = true;
+
+    // --- Top / bottom walls (invisible triggers) ---
+    constexpr float kWallH = 20.f;
+
+    auto* wallTop = addObject("WallTop");
+    wallTop->transform.position = {sw * 0.5f, -kWallH * 0.5f};
+    wallTop->setTag("WallTop");
+    wallTop->addComponent<BoxColliderComponent>(
+        "Collider", Vec2F{static_cast<float>(sw) + 40.f, kWallH})->isTrigger = true;
+
+    auto* wallBottom = addObject("WallBottom");
+    wallBottom->transform.position = {sw * 0.5f, static_cast<float>(sh) + kWallH * 0.5f};
+    wallBottom->setTag("WallBottom");
+    wallBottom->addComponent<BoxColliderComponent>(
+        "Collider", Vec2F{static_cast<float>(sw) + 40.f, kWallH})->isTrigger = true;
 
     // --- Ball ---
     auto* ball = addObject("Ball");
     ball->transform.position = {sw * 0.5f, sh * 0.5f};
     ball->addComponent<CircleComponent>("Shape", ballRadius, white);
+    auto* ballCol = ball->addComponent<CircleColliderComponent>("Collider", ballRadius);
 
     // --- Score display ---
     auto* p1ScoreObj = addObject("P1Score");
@@ -302,5 +294,21 @@ void PongScene::load() {
     // --- Controllers ---
     addPlayerController<PaddleController>(sh)->possess(p1);
     addPlayerController<PaddleAI>(sh)->possess(p2);
-    addPlayerController<BallController>(sw, sh)->possess(ball);
+    auto* ballCtrl = addPlayerController<BallController>(sw, sh);
+    ballCtrl->possess(ball);
+
+    // --- Collision callbacks ---
+    // All bounce logic is dispatched here, keeping BallController::update() clean.
+    ballCol->onEnter = [ballCtrl](ColliderComponent* other) {
+        const std::string& tag = other->getOwner()->getTag();
+        if (tag == "WallTop" || tag == "WallBottom") {
+            ballCtrl->bounceFromWall(tag == "WallTop");
+        } else if (tag == "P1Paddle" || tag == "P2Paddle") {
+            ballCtrl->bounceFromPaddle(
+                other->getOwner()->transform.position,
+                tag == "P1Paddle",
+                other->getBounds()
+            );
+        }
+    };
 }
