@@ -5,6 +5,9 @@
 #include "MenuScene.h"
 #include "SpaceInvadersScene.h"
 #include "GameOverScene.h"
+#include "GameStateManager.h"
+#include "GameStats.h"
+
 #include <iostream>
 
 int main() {
@@ -13,6 +16,9 @@ int main() {
         std::cerr << "Cannot initialize the game.\n";
         return EXIT_FAILURE;
     }
+
+    GameStateManager::instance().set(GameStats{});
+
 
     auto& orch = SceneOrchestrator::instance();
     orch.registerScene<MenuScene>("menu");

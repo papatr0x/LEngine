@@ -6,6 +6,7 @@
 #include "CollisionSystem.h"
 #include "FontManager.h"
 #include "GameStateManager.h"
+#include "GameStats.h"
 #include "PlayerController.h"
 #include "SceneOrchestrator.h"
 #include "ScriptComponent.h"
@@ -38,15 +39,15 @@ constexpr int       kEnemyLines      = 5;
 constexpr float     kEnemiesStep     = kMartianSize.x * 1.2f;
 constexpr float     kEnemiesStart    = 40.f;
 constexpr SDL_Color kMartianColor    {0xff, 0xff, 0xff, 0xff};
+constexpr int       kPointsPerMartian = 10;
 
 // Shields
 constexpr int kShieldCount  = 4;
 constexpr float kShieldMargin = 110.f;
 
-struct GameScore {
-    int score{};
-};
-
+// ---------------------------------------------------------------------------
+// ShipController
+// ---------------------------------------------------------------------------
 class ShipController : public PlayerController {
 public:
     ShipController(float screenWidth, TextComponent* scoreText)
@@ -87,8 +88,8 @@ private:
         auto* collider = bullet->addComponent<BoxColliderComponent>("Collider", kBulletSize);
         collider->onEnter = [this, thisColl = collider](ColliderComponent* otherColl) {
             if (otherColl->getOwner()->getTag() == "Martian") {
-                GameScore& score = GameStateManager::instance().get<GameScore>();
-                score.score += 1;
+                GameStats& score = GameStateManager::instance().get<GameStats>();
+                score.score += kPointsPerMartian;
                 scoreText_->setText(std::format("{:05}", score.score));
                 thisColl->getOwner()->destroy();
                 otherColl->getOwner()->destroy();
@@ -122,7 +123,10 @@ public:
         std::erase_if(martians_, [](const Object* m) { return m->isPendingDestroy(); });
         cursor_ = std::max(0, cursor_ - removedBeforeCursor);
 
-        if (martians_.empty()) return;
+        if (martians_.empty()) {
+            SceneOrchestrator::instance().goTo("thegame");
+            return;
+        }
 
         if (waiting_) {
             pauseAccum_ += dt;
@@ -138,7 +142,9 @@ public:
         if (cursor_ >= static_cast<int>(martians_.size()))
             cursor_ = 0;
 
-        martians_[cursor_]->transform.position.x += kStepX * dir_;
+        const auto& martian = martians_[cursor_];
+        martian->transform.position.x += kStepX * dir_;
+        martian->setActive(true);
         ++cursor_;
 
         if (cursor_ >= static_cast<int>(martians_.size())) {
@@ -176,7 +182,8 @@ private:
 // ---------------------------------------------------------------------------
 void SpaceInvadersScene::load() {
     addSubsystem<CollisionSystem>();
-    GameStateManager::instance().set(GameScore{});
+    const GameStats& stats = GameStateManager::instance().get<GameStats>();
+
     setBackgroundColor(kBackgroundColor);
     TTF_Font* fontScore = FontManager::instance().load("assets/VT323-Regular.ttf", 24.f);
     auto& [sw, sh] = getScreenSize();
@@ -196,9 +203,9 @@ void SpaceInvadersScene::load() {
         Vec2F{sw * 0.50f, uiRow1});
     ui->addComponent<TextComponent>("TextScore2Hdr", "SCORE<2>", fontScore, kMainColor,
         Vec2F{sw * 0.75f, uiRow1});
-    playerScoreTextCompo_ = ui->addComponent<TextComponent>("TextScore1", "00000", fontScore,
+    playerScoreTextCompo_ = ui->addComponent<TextComponent>("TextScore1", std::format("{:05}", stats.score), fontScore,
         kMainColor, Vec2F{sw * 0.25f, uiRow2});
-    ui->addComponent<TextComponent>("TextHiScore", "00000", fontScore, kMainColor,
+    ui->addComponent<TextComponent>("TextHiScore", "00000" , fontScore, kMainColor,
         Vec2F{sw * 0.50f, uiRow2});
     ui->addComponent<TextComponent>("TextScore2", "00000", fontScore, kMainColor,
         Vec2F{sw * 0.75f, uiRow2});
@@ -214,6 +221,7 @@ void SpaceInvadersScene::load() {
             auto* object = addObject(std::format("Martian.{}.{}", i, j));
             object->transform.position = {kEnemiesStart + kEnemiesStep * j, base};
             object->setTag("Martian");
+            object->setActive(false);
             object->addComponent<SquareComponent>("Shape", kMartianSize, kMartianColor);
             auto* collider = object->addComponent<CircleColliderComponent>("Collider", kMartianSize.x/2.f - 1.f);
             collider->debugDraw = true;
