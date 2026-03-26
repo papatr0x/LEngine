@@ -3,6 +3,7 @@
 #ifndef LETSLEARNSDL_PONG_MENUSCENE_H
 #define LETSLEARNSDL_PONG_MENUSCENE_H
 
+#include "BuildInfo.h"
 #include "FontManager.h"
 #include "GameEngine.h"
 #include "InputComponent.h"
@@ -10,6 +11,7 @@
 #include "ScriptComponent.h"
 #include "TextComponent.h"
 #include "TransitionComponent.h"
+#include <string>
 
 class MenuScene : public Scene {
 public:
@@ -38,6 +40,11 @@ public:
 
         auto* quit = ui->addComponent<TextComponent>("Quit", "[ESC] Quit", fontMed);
         quit->setOffset({0.f, 60.f});
+
+        TTF_Font* fontSmall = FontManager::instance().load("assets/Roboto-Regular.ttf", 13.f);
+        auto* buildObj = addObject("BuildVersion");
+        buildObj->transform.position = {cx, sh - 15.f};
+        buildObj->addComponent<TextComponent>("Text", std::string{"build "} + kBuildVersion, fontSmall);
 
         // --- Input ---
         auto inputObj = addObject("Input");

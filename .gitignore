@@ -1,3 +1,7 @@
 .idea
 cmake-build*/
 build/
+
+# Do not store files related to build number
+build_number.txt
+BuildInfo.h
