@@ -22,7 +22,7 @@ class ColliderComponent : public Component {
 public:
     using CollisionCallback = std::function<void(ColliderComponent* other)>;
 
-    ColliderComponent(Object* owner, const std::string& id, const Vec2F offset = {0.f, 0.f})
+    ColliderComponent(Object* owner, const std::string& id, const Vec2F& offset = {0.f, 0.f})
         : Component(owner, id), offset(offset) {}
 
     ~ColliderComponent() override = default;
@@ -68,7 +68,7 @@ protected:
 
 class BoxColliderComponent : public ColliderComponent {
 public:
-    BoxColliderComponent(Object* owner, const std::string& id, const Vec2F size, const Vec2F offset = {0.f, 0.f})
+    BoxColliderComponent(Object* owner, const std::string& id, const Vec2F& size, const Vec2F& offset = {0.f, 0.f})
         : ColliderComponent(owner, id, offset), size(size) {}
 
     void drawCollider(SDL_Renderer* renderer) noexcept override {
@@ -102,7 +102,7 @@ private:
 
 class CircleColliderComponent : public ColliderComponent {
 public:
-    CircleColliderComponent(Object* owner, const std::string& id, const float radius, const Vec2F offset = {0.f, 0.f})
+    CircleColliderComponent(Object* owner, const std::string& id, const float& radius, const Vec2F& offset = {0.f, 0.f})
         : ColliderComponent(owner, id, offset), radius(radius) {}
 
     void drawCollider(SDL_Renderer* renderer) noexcept override {

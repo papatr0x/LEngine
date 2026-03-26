@@ -86,8 +86,13 @@ public:
         for (auto& ctrl : controllers)
             ctrl->update(deltaTime);
 
+        // Subsystems run first so components can react (e.g. erase pendingDestroy refs
+        // in the same frame they are marked, before flushDestroyQueue frees the memory).
+        for (auto& sys : subsystems)
+            sys->update();
+
         for (auto& entry : componentPool) {
-            if (!entry.owner->isActive() || !entry.component->isEnabled()) continue;
+            if (!entry.owner->isActive() || entry.owner->isPendingDestroy() || !entry.component->isEnabled()) continue;
 
             const float interval = entry.component->getUpdateInterval();
             if (interval <= 0.0f) {
@@ -105,14 +110,11 @@ public:
         physicsAccumulator += deltaTime;
         while (physicsAccumulator >= fixedPhysicsStep) {
             for (auto& entry : componentPool) {
-                if (entry.owner->isActive() && entry.component->isEnabled())
+                if (entry.owner->isActive() && !entry.owner->isPendingDestroy() && entry.component->isEnabled())
                     entry.component->updatePhysics(fixedPhysicsStep);
             }
             physicsAccumulator -= fixedPhysicsStep;
         }
-
-        for (auto& sys : subsystems)
-            sys->update();
 
         flushDestroyQueue();
     }
