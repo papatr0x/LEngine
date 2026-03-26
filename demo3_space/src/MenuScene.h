@@ -11,6 +11,8 @@
 #include "ScriptComponent.h"
 #include "TextComponent.h"
 #include "TransitionComponent.h"
+
+#include <format>
 #include <string>
 
 class MenuScene : public Scene {
@@ -44,7 +46,7 @@ public:
         TTF_Font* fontSmall = FontManager::instance().load("assets/Roboto-Regular.ttf", 13.f);
         auto* buildObj = addObject("BuildVersion");
         buildObj->transform.position = {cx, sh - 15.f};
-        buildObj->addComponent<TextComponent>("Text", std::string{"build "} + kBuildVersion, fontSmall);
+        buildObj->addComponent<TextComponent>("Text", std::format("Build {}",kBuildVersion), fontSmall);
 
         // --- Input ---
         auto inputObj = addObject("Input");

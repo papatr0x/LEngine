@@ -5,14 +5,9 @@
 
 #include "Scene.h"
 
-class TextComponent;
-
 class SpaceInvadersScene : public Scene {
 public:
     void load() override;
-private:
-    TextComponent*       playerScoreTextCompo_{};
-    std::vector<Object*> martians_{};
 };
 
 #endif //LETSLEARNSDL_SPACEINVADERSSCENE_H
